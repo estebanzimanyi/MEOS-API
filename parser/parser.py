@@ -105,6 +105,10 @@ def parse_meos(entry: Path, include_dir: Path) -> dict:
 # collapses to implicit int and timestamp parameters are emitted 32-bit.
 # These mirror MobilityDB's postgres/c.h (LP64 branch), timestamp_def.h
 # and date.h exactly.
+#
+# LP64 ONLY: `typedef long int int64` assumes a 64-bit `long` (Linux/macOS,
+# matching the Docker build). If a Windows (LLP64) parse target is ever added,
+# the int64/uint64 stub needs an `_LP64` / `_WIN64` discriminator.
 _SYSTEM_HEADER_STUBS = """
 #ifndef bool
 #define bool _Bool
