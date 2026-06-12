@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 from pathlib import Path
@@ -5,6 +6,7 @@ from pathlib import Path
 from parser.parser import parse_all_headers, merge_meta
 from parser.portable import attach_portable_aliases
 from parser.typerecover import recover_collapsed_types
+from parser.sqlfn import attach_sqlfn_map
 
 
 HEADERS_DIR = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("./meos/include")
@@ -39,6 +41,17 @@ def main():
     print(f"[3/3] Attaching portable aliases from {PORTABLE_PATH}...",
           file=sys.stderr)
     idl = attach_portable_aliases(idl, PORTABLE_PATH)
+
+    # 4. Attach the SQL-name map (@sqlfn/@sqlop) from the vendored source.
+    #    The source root is overridable (MDB_SRC_ROOT) so a binding can point the
+    #    @sqlfn/@ingroup extraction at the SAME pinned checkout as the headers,
+    #    keeping the catalog reproducibly equivalent to that pin.
+    SRC_ROOT = Path(os.environ.get("MDB_SRC_ROOT", "./_mobilitydb"))
+    MEOS_SRC = SRC_ROOT / "meos" / "src"
+    MDB_SRC = SRC_ROOT / "mobilitydb" / "src"
+    if MEOS_SRC.exists() and MDB_SRC.exists():
+        idl, nsql = attach_sqlfn_map(idl, MEOS_SRC, MDB_SRC)
+        print(f"[4/4] Attached {nsql} @sqlfn SQL names", file=sys.stderr)
 
     idl_path = OUTPUT_DIR / "meos-idl.json"
     with open(idl_path, "w") as f:
