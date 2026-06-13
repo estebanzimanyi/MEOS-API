@@ -7,6 +7,7 @@ from parser.parser import parse_all_headers, merge_meta
 from parser.portable import attach_portable_aliases
 from parser.typerecover import recover_collapsed_types
 from parser.sqlfn import attach_sqlfn_map
+from parser.doxygroup import attach_groups
 
 
 HEADERS_DIR = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("./meos/include")
@@ -52,6 +53,12 @@ def main():
     if MEOS_SRC.exists() and MDB_SRC.exists():
         idl, nsql = attach_sqlfn_map(idl, MEOS_SRC, MDB_SRC)
         print(f"[4/4] Attached {nsql} @sqlfn SQL names", file=sys.stderr)
+
+    # 5. Attach the doxygen module group (@ingroup) from the vendored source, so
+    #    bindings organize their generated surface like the reference manual.
+    if MEOS_SRC.exists():
+        idl, ngrp = attach_groups(idl, MEOS_SRC)
+        print(f"[5/5] Attached {ngrp} doxygen @ingroup groups", file=sys.stderr)
 
     idl_path = OUTPUT_DIR / "meos-idl.json"
     with open(idl_path, "w") as f:
