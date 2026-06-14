@@ -50,8 +50,9 @@ def main():
     SRC_ROOT = Path(os.environ.get("MDB_SRC_ROOT", "./_mobilitydb"))
     MEOS_SRC = SRC_ROOT / "meos" / "src"
     MDB_SRC = SRC_ROOT / "mobilitydb" / "src"
+    SQL_SRC = SRC_ROOT / "mobilitydb" / "sql"
     if MEOS_SRC.exists() and MDB_SRC.exists():
-        idl, nsql = attach_sqlfn_map(idl, MEOS_SRC, MDB_SRC)
+        idl, nsql = attach_sqlfn_map(idl, MEOS_SRC, MDB_SRC, SQL_SRC)
         print(f"[4/4] Attached {nsql} @sqlfn SQL names", file=sys.stderr)
 
     # 5. Attach the doxygen module group (@ingroup) from the vendored source, so
