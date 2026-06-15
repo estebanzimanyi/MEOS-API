@@ -98,28 +98,28 @@
       }
     ],
     "temporalComparison": [
-      { "operator": "#=",  "bareName": "tempEq" },
-      { "operator": "#<>", "bareName": "tempNe" },
-      { "operator": "#<",  "bareName": "tempLt" },
-      { "operator": "#<=", "bareName": "tempLe" },
-      { "operator": "#>",  "bareName": "tempGt" },
-      { "operator": "#>=", "bareName": "tempGe" }
+      { "operator": "#=",  "bareName": "tEq" },
+      { "operator": "#<>", "bareName": "tNe" },
+      { "operator": "#<",  "bareName": "tLt" },
+      { "operator": "#<=", "bareName": "tLe" },
+      { "operator": "#>",  "bareName": "tGt" },
+      { "operator": "#>=", "bareName": "tGe" }
     ],
     "everComparison": [
-      { "operator": "?=",  "bareName": "everEq" },
-      { "operator": "?<>", "bareName": "everNe" },
-      { "operator": "?<",  "bareName": "everLt" },
-      { "operator": "?<=", "bareName": "everLe" },
-      { "operator": "?>",  "bareName": "everGt" },
-      { "operator": "?>=", "bareName": "everGe" }
+      { "operator": "?=",  "bareName": "eEq" },
+      { "operator": "?<>", "bareName": "eNe" },
+      { "operator": "?<",  "bareName": "eLt" },
+      { "operator": "?<=", "bareName": "eLe" },
+      { "operator": "?>",  "bareName": "eGt" },
+      { "operator": "?>=", "bareName": "eGe" }
     ],
     "alwaysComparison": [
-      { "operator": "%=",  "bareName": "alwaysEq" },
-      { "operator": "%<>", "bareName": "alwaysNe" },
-      { "operator": "%<",  "bareName": "alwaysLt" },
-      { "operator": "%<=", "bareName": "alwaysLe" },
-      { "operator": "%>",  "bareName": "alwaysGt" },
-      { "operator": "%>=", "bareName": "alwaysGe" }
+      { "operator": "%=",  "bareName": "aEq" },
+      { "operator": "%<>", "bareName": "aNe" },
+      { "operator": "%<",  "bareName": "aLt" },
+      { "operator": "%<=", "bareName": "aLe" },
+      { "operator": "%>",  "bareName": "aGt" },
+      { "operator": "%>=", "bareName": "aGe" }
     ],
     "distance": [
       {
