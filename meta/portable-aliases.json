@@ -124,7 +124,7 @@
     "distance": [
       {
         "operator": "<->",
-        "bareName": "tdistance"
+        "bareName": "tDistance"
       },
       {
         "operator": "|=|",
