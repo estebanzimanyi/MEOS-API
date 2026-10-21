@@ -71,7 +71,7 @@ def _is_written_back_array(p: dict) -> bool:
     if "**" not in ct or ct.lstrip().startswith("const"):
         return False
     element = _strip_one_ptr(_strip_one_ptr(ct))
-    return element.endswith("*") or _bare(element) in _ELEMENT_SCALARS
+    return element.endswith("*") or _is_element_scalar(element, p)
 
 
 def _strip_one_ptr(ctype: str) -> str:
@@ -108,6 +108,21 @@ def _bare(ctype: str) -> str:
     return " ".join((ctype or "").replace("const ", "").split())
 
 
+def _is_element_scalar(element: str, prm: dict) -> bool:
+    """Whether ``element``, the element type of the array parameter ``prm``, is one of
+    the by-value scalars of #_ELEMENT_SCALARS, by the type the header declares or by
+    the width its canonical states: a cell (``H3Index``, ``Quadbin``, ``S2CellId``)
+    is declared by its own name and is a ``uint64_t``, as the element of
+    #_input_arrays states it."""
+    if _bare(element) in _ELEMENT_SCALARS:
+        return True
+    width = _bare(prm.get("canonical"))
+    stars = _bare(prm.get("cType")).count("*") - _bare(element).count("*")
+    for _ in range(stars):
+        width = _strip_one_ptr(width)
+    return width in _ELEMENT_SCALARS
+
+
 def _input_arrays(func: dict) -> list:
     """The array ARGUMENTS a function reads, with the parameter each takes its
     length from.
@@ -138,7 +153,7 @@ def _input_arrays(func: dict) -> list:
         ctype = _bare(prm.get("cType"))
         if ctype.endswith("**"):
             return ctype not in ("char **", "void **")
-        return ctype.endswith("*") and ctype[:-1].strip() in _ELEMENT_SCALARS
+        return ctype.endswith("*") and _is_element_scalar(ctype[:-1].strip(), prm)
 
     out = []
     start = 0

@@ -119,23 +119,26 @@ class TypeRecoverTests(unittest.TestCase):
         self.assertEqual(self._ret("temporal_eq"), "bool")          # scalar
         self.assertEqual(self._ret("tbool_values"), "bool *")       # pointer return
         self.assertEqual(self._ret("temporal_timestamps"), "TimestampTz *")
-        self.assertEqual(self._ret("bigintset_values"), "int64_t *")
-        self.assertEqual(self._ret("th3index_values"), "uint64_t *")
+        self.assertEqual(self._ret("bigintset_values"), "int64 *")
+        self.assertEqual(self._ret("th3index_values"), "H3Index *")
 
     def test_uint64_recovered(self):
         # The bare PG ``uint64`` typedef collapses to ``int`` and must recover
-        # to ``uint64_t`` (like ``int64`` -> ``int64_t``), else 64-bit values
-        # (hash seeds, quadbin cells) truncate to 32 bits in generated
-        # bindings. These ``*_hash_extended`` functions use the bare ``uint64``
-        # typedef (not the H3Index/Quadbin aliases), so they recover only when
-        # the ``uint64`` map entry is present — a guard against dropping it.
-        self.assertEqual(self._ret("set_hash_extended"), "uint64_t")
-        self.assertEqual(self._ret("span_hash_extended"), "uint64_t")
-        self.assertIn("uint64_t", self._param_ctypes("set_hash_extended"))
+        # to the ``uint64`` the header declares, its canonical the ``uint64_t``
+        # width, else 64-bit values (hash seeds, quadbin cells) truncate to 32
+        # bits in generated bindings. These ``*_hash_extended`` functions use the
+        # bare ``uint64`` typedef (not the H3Index/Quadbin aliases), so they
+        # recover only when the ``uint64`` map entry is present — a guard
+        # against dropping it.
+        self.assertEqual(self._ret("set_hash_extended"), "uint64")
+        self.assertEqual(self._ret("span_hash_extended"), "uint64")
+        self.assertIn("uint64", self._param_ctypes("set_hash_extended"))
+        self.assertEqual(self.by_name["set_hash_extended"]["returnType"]["canonical"],
+                         "uint64_t")
 
     def test_uint32_recovered(self):
         # The bare PG ``uint32`` typedef collapses to ``int`` and must recover
-        # to ``uint32_t`` (like ``uint64`` -> ``uint64_t``), else the unsigned
+        # to the ``uint32`` the header declares (like ``uint64``), else the unsigned
         # 32-bit hash return renders as a signed ``int`` in every generated
         # binding (values >= 2**31 flip sign). Every MEOS ``*_hash`` returns the
         # bare ``uint32`` typedef, so they recover only when the ``uint32`` map
@@ -143,20 +146,20 @@ class TypeRecoverTests(unittest.TestCase):
         # recurrently-lost ``uint64`` entry above.
         for name in ("set_hash", "span_hash", "spanset_hash",
                      "tbox_hash", "temporal_hash"):
-            self.assertEqual(self._ret(name), "uint32_t", name)
+            self.assertEqual(self._ret(name), "uint32", name)
         # Genuine ``int`` returns (e.g. numValues) must stay untouched: the
         # recovery only fires where the header text spells ``uint32``.
         self.assertEqual(self._ret("set_num_values"), "int")
 
     def test_uint32_canonical_normalized(self):
-        # A uint32_t slot's fully-resolved ``canonical`` is the platform builtin
+        # A uint32 slot's fully-resolved ``canonical`` is the platform builtin
         # "unsigned int" (libclang) while ``cType`` keeps the typedef. It must
         # normalize to "uint32_t" so the width is spelled identically catalog-wide
         # and bindings (which key on ``canonical``) keep the *_hash surface instead
         # of dropping it -- the uint32 sibling of the uint64 canonical guard below.
         for name in ("temporal_hash", "set_hash", "span_hash", "tbox_hash"):
             rt = self.by_name[name]["returnType"]
-            self.assertEqual(rt["c"], "uint32_t", f"{name} c")
+            self.assertEqual(rt["c"], "uint32", f"{name} c")
             self.assertEqual(rt["canonical"], "uint32_t", f"{name} canonical")
         # No uint32 typedef slot is left as the platform "unsigned int" (genuine
         # ``unsigned int`` params such as PG ``Oid`` keep cType "unsigned int").
@@ -168,22 +171,26 @@ class TypeRecoverTests(unittest.TestCase):
 
     def test_cell_id_canonical_normalized_uniform(self):
         # H3Index (libh3's typedef, whose fully-resolved canonical is the platform
-        # "unsigned long"), Quadbin and S2CellId (MobilityDB's typedefs, recovered to
-        # "uint64_t") are ALL uint64 cell ids; as Tcell<T> subtypes they must be spelled
-        # identically. The ``canonical`` field must normalize to "uint64_t" for each, not
-        # leave one at "unsigned long" — a guard on the _CANON_ALIAS canonical-normalization
-        # pass.
-        for name in ("th3index_start_value", "th3index_end_value",
-                     "tquadbin_start_value", "tquadbin_end_value", "h3index_in",
-                     "ts2cell_start_value", "ts2cell_end_value", "s2cell_in"):
+        # "unsigned long"), Quadbin and S2CellId (MobilityDB's typedefs) are ALL uint64
+        # cell ids; as Tcell<T> subtypes their width must be spelled identically. The
+        # ``c`` field is the cell typedef the header declares, and the ``canonical``
+        # field normalizes to "uint64_t" for each, not leaving one at "unsigned long" — a
+        # guard on the _CANON_ALIAS canonical-normalization pass.
+        for name, cell in (("th3index_start_value", "H3Index"),
+                           ("th3index_end_value", "H3Index"),
+                           ("tquadbin_start_value", "Quadbin"),
+                           ("tquadbin_end_value", "Quadbin"), ("h3index_in", "H3Index"),
+                           ("ts2cell_start_value", "S2CellId"),
+                           ("ts2cell_end_value", "S2CellId"), ("s2cell_in", "S2CellId")):
             rt = self.by_name[name]["returnType"]
-            self.assertEqual(rt["c"], "uint64_t", f"{name} c")
+            self.assertEqual(rt["c"], cell, f"{name} c")
             self.assertEqual(rt["canonical"], "uint64_t", f"{name} canonical")
         # An array of cell ids is an array of by-value uint64_t, whichever cell
         # typedef the header spells it with.
-        for name in ("th3index_values", "tquadbin_values", "ts2cell_values"):
+        for name, cell in (("th3index_values", "H3Index"), ("tquadbin_values", "Quadbin"),
+                           ("ts2cell_values", "S2CellId")):
             rt = self.by_name[name]["returnType"]
-            self.assertEqual(rt["c"], "uint64_t *", f"{name} c")
+            self.assertEqual(rt["c"], f"{cell} *", f"{name} c")
             self.assertEqual(rt["canonical"], "uint64_t *", f"{name} canonical")
 
     def test_typedef_canonical_not_platform_resolved(self):
@@ -349,6 +356,53 @@ class ScalarSpellingTests(unittest.TestCase):
                          ["int32_t", "const uint64_t *"])
         self.assertEqual(fixed, 3)
         self.assertNotIn("_typedefs", idl)
+
+    def test_a_chain_ending_at_a_platform_integer_takes_the_width(self):
+        # PostgreSQL 17's c.h declares `typedef long int int64`, whose chain ends at the
+        # platform's `long`, 32 bits on Windows: the canonical is the width, the cType
+        # stays the name the header declares. Built as #test_normalize_states_a_slot_by_its_chain.
+        from parser.typerecover import normalize_canonical
+        idl = {"_typedefs": {"int64": "long int", "uint32": "unsigned int"},
+               "functions": [
+                   {"name": "set_hash", "returnType": {"c": "uint32", "canonical": "unsigned int"},
+                    "params": [{"name": "i", "cType": "int64", "canonical": "long"}]}]}
+        idl, _ = normalize_canonical(idl, frozenset())
+        f = idl["functions"][0]
+        self.assertEqual((f["returnType"]["c"], f["returnType"]["canonical"]),
+                         ("uint32", "uint32_t"))
+        self.assertEqual((f["params"][0]["cType"], f["params"][0]["canonical"]),
+                         ("int64", "int64_t"))
+
+    def test_recovery_keeps_the_spelling_the_header_declares(self):
+        # `int64` and `int64_t` are distinct C types where the platform spells them apart
+        # (`long` and `long long` on macOS), so a recovered slot, collapsed to int or not,
+        # carries the header's `int64`, and only its canonical the width. The header-text
+        # counterpart of #test_normalize_states_a_slot_by_its_chain.
+        import tempfile
+        from parser.typerecover import recover_collapsed_types
+        with tempfile.TemporaryDirectory() as hdir:
+            Path(hdir, "meos.h").write_text(
+                "extern Set *bigint_to_set(int64 i);\n"
+                "extern Set *bigint_to_span(int64 i);\n"
+                "extern H3Index *th3index_values(const Temporal *temp, int *count);\n")
+            idl = {"functions": [
+                {"name": "bigint_to_set", "returnType": {"c": "Set *", "canonical": "Set *"},
+                 "params": [{"name": "i", "cType": "int", "canonical": "int"}]},
+                {"name": "bigint_to_span", "returnType": {"c": "Set *", "canonical": "Set *"},
+                 "params": [{"name": "i", "cType": "int64", "canonical": "long"}]},
+                {"name": "th3index_values",
+                 "returnType": {"c": "uint64_t *", "canonical": "unsigned long *"},
+                 "params": [{"name": "temp", "cType": "const Temporal *",
+                             "canonical": "const Temporal *"},
+                            {"name": "count", "cType": "int *", "canonical": "int *"}]}]}
+            idl, _ = recover_collapsed_types(idl, hdir)
+        by = {f["name"]: f for f in idl["functions"]}
+        for name in ("bigint_to_set", "bigint_to_span"):
+            p = by[name]["params"][0]
+            self.assertEqual((p["cType"], p["canonical"]), ("int64", "int64_t"), name)
+        rt = by["th3index_values"]["returnType"]
+        self.assertEqual(rt["c"], "H3Index *")
+        self.assertEqual(by["th3index_values"]["params"][1]["cType"], "int *")
 
 
 if __name__ == "__main__":

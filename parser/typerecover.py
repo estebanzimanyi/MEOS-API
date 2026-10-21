@@ -164,8 +164,12 @@ def recover_collapsed_types(idl, headers_dir):
         # the name the header declares, which #normalize_canonical states as the slot's
         # `typedef` when it names a type of its own
         slot["_declared"] = _base_name(original)
-        rewrote = slot.get(key) != recovered
-        slot[key] = recovered
+        # The c-field is the spelling the header declares, never its width: `int64` and
+        # `int64_t` are distinct C types where the platform spells them apart (`long` and
+        # `long long` on macOS), so a binding declaring the width would not match the
+        # header. The width is the canonical's.
+        rewrote = slot.get(key) != original
+        slot[key] = original
         canon = _nospace(slot.get("canonical"))
         if canon in recoverable or canon in _CANON_ALIAS.get(_nospace(recovered), ()):
             rewrote = rewrote or slot.get("canonical") != recovered
@@ -311,8 +315,13 @@ def normalize_canonical(idl, pg_names=frozenset()):
 
     def want(ctype):
         base = _base_name(ctype)
-        mapped = (scalar_spelling(base, typedefs, pg_names) if base in typedefs
-                  else None) or _TYPE_MAP.get(base)
+        spelled = (scalar_spelling(base, typedefs, pg_names) if base in typedefs
+                   else None)
+        # A chain ending at a platform scalar (PostgreSQL 17's `typedef long int int64`
+        # ends at `long`, 32 bits on Windows) states no width; the width is _TYPE_MAP's.
+        if spelled in _C_SCALARS and base in _TYPE_MAP:
+            spelled = None
+        mapped = spelled or _TYPE_MAP.get(base)
         if not mapped:
             return None
         const = "const " if re.search(r"\bconst\b", ctype) else ""

@@ -186,6 +186,22 @@ class ShapeInferTests(unittest.TestCase):
              ("zcoords", "count"), ("times", "count")])
         self.assertEqual(stats["inputArrays"], 6)
 
+    def test_an_array_of_cells_is_read_by_the_width_of_its_element(self):
+        # `th3indexseq_make(const H3Index *values, const TimestampTz *times, int count)`
+        # declares its cells by their own name, whose canonical is the `uint64_t` the
+        # array holds by value, so `values` is an array of the run as `times` is; the
+        # element keeps the declared name beside the width. The cell counterpart of
+        # #test_a_run_of_arrays_shares_the_length_that_follows_it.
+        fn = _fn("th3indexseq_make", "TSequence *",
+                 [("values", "const H3Index *"), ("times", "const TimestampTz *"),
+                  ("count", "int")])
+        fn["params"][0]["canonical"] = "const uint64_t *"
+        idl, _ = infer_shapes({"functions": [fn]})
+        arrays = idl["functions"][0]["shape"]["inputArrays"]
+        self.assertEqual([(a["param"], a["lengthFrom"]["name"]) for a in arrays],
+                         [("values", "count"), ("times", "count")])
+        self.assertEqual(arrays[0]["element"], {"c": "H3Index", "canonical": "uint64_t"})
+
     def test_an_array_counted_on_its_own_keeps_its_own_length(self):
         # The counter-case the run rule must not swallow: a family that counts
         # each array separately declares each one beside ITS length, so every
